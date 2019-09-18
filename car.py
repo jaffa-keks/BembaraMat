@@ -32,11 +32,12 @@ class Car:
         self.msa = radians(60) # max sensor ang
         self.sds = 5 # sensor directions
         self.so = 40 # sensor offset
-        self.sensors = [0] * self.sds
+        self.sensors = [1] * self.sds
         self.srp = [(0,0)] * (self.sa * self.sds) # sensor render points
         self.tpa = 16 # turn path amount (density)
         self.tp = [(0,0)] * self.tpa
         self.tc = [0, 0]
+        self.reverse = False
 
     def update(self):
 #        self.steer(self.inp.hor)
@@ -88,14 +89,7 @@ class Car:
         self.bdr.update([dx, dy], dr)
         self.set_col_pts()
         if self.fw_ang <> 0 :
-            r = self.wb / tan(self.fw_ang)
-            cx = self.pos[0] - r * sin(self.rot)
-            cy = self.pos[1] - r * cos(self.rot)
-            self.tc = (cx, cy)
-            for i in xrange(self.tpa):
-                xp = cx + r * sin(self.rot + tan(self.fw_ang) * i * self.signof(amount) * 0.4)
-                yp = cy + r * cos(self.rot + tan(self.fw_ang) * i * self.signof(amount) * 0.4)
-                self.tp[i] = (xp, yp)
+            self.trajectory(amount)
         if self.coll() == False:
             self.pos = [dx, dy]
             self.rot = dr
@@ -118,8 +112,7 @@ class Car:
 
     def upd_sensors(self):
         ang_inc = self.msa * 2.0 / (self.sds - 1.0) # dif between each ang
-        angles = [self.rot + self.msa - i * ang_inc for i in xrange(self.sds)] # calc ang of each dir
-        #angles = [self.rot + radians(45), self.rot, self.rot - radians(45)]
+        angles = [self.rot + (pi if self.reverse else 0.0) + self.msa - i * ang_inc for i in xrange(self.sds)] # calc ang of each dir
         ang_i = -1
         self.sensors = [1] * self.sds
         for ang in angles:
@@ -142,7 +135,9 @@ class Car:
                 continue
             pref_turn += self.sensors[i] * (1.0 if i < mid else -1.0)
         drive_power = self.sensors[mid] * -1.0
-        self.drive(drive_power)
+        if self.sensors[mid] < 0.2:
+            self.reverse = not self.reverse
+        self.drive(drive_power * (1.0 if not self.reverse else -1.0))
         self.steer_to(pref_turn)
 
     def steer_to(self, pos):
@@ -150,6 +145,16 @@ class Car:
         pos_ang = pos * self.max_fw_ang
         dif = self.fw_ang - pos_ang
         self.steer(self.signof(dif))
+
+    def trajectory(self, speed):
+        r = self.wb / tan(self.fw_ang)
+        cx = self.pos[0] - r * sin(self.rot)
+        cy = self.pos[1] - r * cos(self.rot)
+        self.tc = (cx, cy)
+        for i in xrange(self.tpa):
+            xp = cx + r * sin(self.rot + tan(self.fw_ang) * i * self.signof(speed) * 0.4)
+            yp = cy + r * cos(self.rot + tan(self.fw_ang) * i * self.signof(speed) * 0.4)
+            self.tp[i] = (xp, yp)
 
     def signof(self, x):
         if x == 0:
