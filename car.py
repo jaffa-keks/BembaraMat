@@ -34,7 +34,7 @@ class Car:
         self.so = 40 # sensor offset
         self.sensors = [1] * self.sds
         self.srp = [(0,0)] * (self.sa * self.sds) # sensor render points
-        self.tpa = 16 # turn path amount (density)
+        self.tpa = 20 # turn path amount (density)
         self.tp = [(0,0)] * self.tpa
         self.tc = [0, 0]
         self.reverse = False
@@ -46,7 +46,7 @@ class Car:
         self.wr.update(self.pos, self.rot)
         self.upd_sensors()
         for i in xrange(0, 4):
-            w_rot = self.rot + self.fw_ang if i < 2 else self.rot
+            w_rot = (self.rot + self.fw_ang) if i < 2 else self.rot
             self.wheels[i].update(self.wr.cnr_pts[i], w_rot)
 
     def render(self, display):
@@ -135,10 +135,10 @@ class Car:
                 continue
             pref_turn += self.sensors[i] * (1.0 if i < mid else -1.0)
         drive_power = self.sensors[mid] * -1.0
-        if self.sensors[mid] < 0.2:
+        if self.sensors[mid] < (0.2 if not self.reverse else 0.4):
             self.reverse = not self.reverse
         self.drive(drive_power * (1.0 if not self.reverse else -1.0))
-        self.steer_to(pref_turn)
+        self.steer_to(pref_turn * (1.0 if not self.reverse else -1.0))
 
     def steer_to(self, pos):
         pos = min(1, max(-1, pos * 1.5))
@@ -152,8 +152,10 @@ class Car:
         cy = self.pos[1] - r * cos(self.rot)
         self.tc = (cx, cy)
         for i in xrange(self.tpa):
-            xp = cx + r * sin(self.rot + tan(self.fw_ang) * i * self.signof(speed) * 0.4)
-            yp = cy + r * cos(self.rot + tan(self.fw_ang) * i * self.signof(speed) * 0.4)
+            xp = cx + r * sin(self.rot + tan(self.fw_ang) * i * self.signof(speed) * 0.3)
+            yp = cy + r * cos(self.rot + tan(self.fw_ang) * i * self.signof(speed) * 0.3)
+            if (self.world.get_terrain((xp, yp))):
+                break
             self.tp[i] = (xp, yp)
 
     def signof(self, x):
