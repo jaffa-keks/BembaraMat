@@ -8,13 +8,13 @@ class App:
     def __init__(self):
         self.running = True
         self.display = None
-        self.size = self.weight, self.height = 1024, 1024
+        self.size = self.weight, self.height = 1600, 1000
         pygame.init()
         self.display = pygame.display.set_mode(self.size)
         pygame.display.set_caption("Car")
         self.inputmng = InputMng()
         self.world = World(self.inputmng)
-        self.ui = UI(self.world.car)
+#        self.ui = UI(self.world.car)
         self.clock = pygame.time.Clock()
  
     def on_event(self, event):
@@ -29,7 +29,7 @@ class App:
     def on_render(self):
         self.display.fill((0, 0, 0))
         self.world.render(self.display)
-        self.ui.render(self.display)
+#        self.ui.render(self.display)
         pygame.display.flip()
     
     def on_cleanup(self):

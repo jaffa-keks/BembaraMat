@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Neural Network Viewer</title>
+        <style>
+            * {
+                margin: 0px;
+                padding: 0px;
+            }
+            body {
+                width: 99vw;
+                height: 99vh;
+                margin-left: 0.5vw;
+            }
+            .d {
+                width: 50%;
+                height: 100%;
+                float: left;
+            }
+            .c {
+                width: 100%;
+                height: 80%;
+            }
+            .inp {
+                width: 100%;
+                height: 20%;
+            }
+        </style>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script>
+            $(document).ready(function() {
+                $(".inp").on("change", function() {
+                    draw($(this).val(), $(this).parent().children().get(0));
+                });
+            });
+
+            var node_rad = 20;
+
+            function draw(data, canvas) {
+                canvas = canvas.getContext("2d");
+                canvas.canvas.width = $("#c1").width();
+                canvas.canvas.height = $("#c1").height();
+                var layers = data.split("Layer");
+                layers.shift();
+                var input_nodes = parseInt(layers[0].split(" - ")[1]);
+                var layer_num = [input_nodes];
+                var parsed_layers = [];
+                console.log(layer_num);
+                for (var i = 0; i < layers.length; i++) {
+                    var nodes = layers[i].split("Node");
+                    var layer_i = [];
+                    nodes.shift();
+                    for (var j = 0; j < nodes.length; j++) {
+                        var n_weights = nodes[j].split('\n')[1].split(' ');
+                        n_weights.pop();
+                        n_weights.pop();
+                        layer_i.push(n_weights);
+                    }
+                    parsed_layers.push(layer_i);
+                }
+                console.log(parsed_layers);
+
+                // draw input layer
+                for (var i = 0; i < input_nodes; i++) {
+                    drawNode(0, i, canvas);
+                }
+                for (var l = 1; l < parsed_layers.length; l++) {
+                    for (var i = 0; i < parsed_layers[l].length; i++) {
+                        for (var w = 0; w < parsed_layers[l][i].length; w++) {
+                            draw_weight(i, l, w, parsed_layers[l][i][w], canvas);
+                        }
+                        drawNode(l, i, canvas);
+                    }
+                }
+
+            }
+
+            function drawNode(layer, index, canvas) {
+                var x_pos = 50 + layer * (canvas.canvas.width / 4);
+                var y_pos = 50 + index * (canvas.canvas.height / 11);
+                canvas.beginPath();
+                canvas.arc(x_pos, y_pos, node_rad, 0, 2 * Math.PI);
+                canvas.strokeStyle = "#000000";
+                canvas.stroke();
+            }
+
+            function draw_weight(node, layer, inp_node, weight, canvas) {
+                var x_pos1 = 50 + (layer - 1) * (canvas.canvas.width / 4);
+                var y_pos1 = 50 + inp_node * (canvas.canvas.height / 11);
+                var x_pos2 = 50 + layer * (canvas.canvas.width / 4);
+                var y_pos2 = 50 + node * (canvas.canvas.height / 11);
+                canvas.moveTo(x_pos1, y_pos1);
+                canvas.lineTo(x_pos2, y_pos2);
+                var red = weight < 0 ? -weight * 40 : 0;
+                var green = weight > 0 ? weight * 40 : 0;
+                canvas.strokeStyle = "rgb(" + red + "," + green + ",0)";
+                canvas.stroke();
+            }
+        </script>
+    </head>
+    <body>
+        <div id="d1" class="d">
+            <canvas id="c1" class="c"></canvas>
+            <textarea id="inp1" class="inp"></textarea>
+        </div>
+        <div id="d2" class="d">
+            <canvas id="c2" class="c"></canvas>
+            <textarea id="inp2" class="inp"></textarea>
+        </div>
+    </body>
+</html>

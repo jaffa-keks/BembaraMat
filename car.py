@@ -1,15 +1,18 @@
 import pygame
 from math import sin, cos, radians, atan2, pi, tan
 from rotrect import RotRect
+from neural import squish
+
+from world import AI_DRIVE
 
 class Car:
 
-    def __init__(self, world, dna, inp = None):
+    def __init__(self, world, inp = None):
         self.world = world
         self.inp = inp
         if inp:
             self.inp.car = self
-        self.pos = [60, 120]
+        self.pos = [120, 120]
         self.rot = 0
         self.bw = 60 # body wid
         self.bl = 100 # body len
@@ -29,7 +32,7 @@ class Car:
         self.wheels = self.init_wheels()
         self.sd = 300 # sensor max dist
         self.sa = 14 # sensor amount
-        self.msa = radians(60) # max sensor ang
+        self.msa = pi # max sensor ang
         self.sds = 5 # sensor directions
         self.so = 40 # sensor offset
         self.sensors = [1] * self.sds
@@ -38,16 +41,24 @@ class Car:
         self.tp = [(0,0)] * self.tpa
         self.tc = [0, 0]
         self.reverse = False
+        self.crashed = False
+        self.driven = 0
 
     def update(self):
-#        self.steer(self.inp.hor)
-#        self.drive(self.inp.ver)
-        self.drive_by_sensors()
+        if self.crashed and AI_DRIVE:
+            return
+        if not AI_DRIVE:
+            self.steer(self.inp.hor)
+            self.drive(-self.inp.ver)
+#        self.drive_by_sensors()
         self.wr.update(self.pos, self.rot)
         self.upd_sensors()
         for i in xrange(0, 4):
             w_rot = (self.rot + self.fw_ang) if i < 2 else self.rot
             self.wheels[i].update(self.wr.cnr_pts[i], w_rot)
+        self.trajectory(1)
+        if not AI_DRIVE and self.driven % 5 < 0.1 and self.inp.ver != 0:
+            self.record_io()
 
     def render(self, display):
         self.bdr.render(display)
@@ -68,7 +79,10 @@ class Car:
         return (w0, w1, w2, w3)
 
     def steer(self, amount):
+        rate = 0.02
         if amount == 0:
+            if abs(self.fw_ang) > rate:
+                self.fw_ang -= self.signof(self.fw_ang) * rate
             return
         self.fw_ang -= amount * self.st_speed
         self.fw_ang = min(self.max_fw_ang, max(-self.max_fw_ang, self.fw_ang))
@@ -76,7 +90,6 @@ class Car:
     def drive(self, amount):
         if amount == 0:
             return
-        amount *= -1
         tmpf = [self.pos[0] + cos(self.rot) * self.wb / 2, self.pos[1] - sin(self.rot) * self.wb / 2]
         tmpb = [self.pos[0] - cos(self.rot) * self.wb / 2, self.pos[1] + sin(self.rot) * self.wb / 2]
         tmpf[0] += cos(self.rot + self.fw_ang) * self.ms * amount
@@ -88,13 +101,14 @@ class Car:
         dr = atan2(tmpb[1] - tmpf[1], tmpf[0] - tmpb[0])
         self.bdr.update([dx, dy], dr)
         self.set_col_pts()
-        if self.fw_ang <> 0 :
-            self.trajectory(amount)
+        # if self.fw_ang <> 0 :
+        #     self.trajectory(amount)
         if self.coll() == False:
             self.pos = [dx, dy]
             self.rot = dr
             self.cfp = tmpf
             self.cbp = tmpb
+            self.driven += amount
         else:
             self.bdr.update(self.pos, self.rot)
             self.set_col_pts()
@@ -107,12 +121,16 @@ class Car:
     def coll(self):
         for clp in self.col_pts:
             if self.world.get_terrain(clp):
+                self.on_coll()
                 return True
         return False
 
+    def on_coll(self):
+        self.crashed = True
+
     def upd_sensors(self):
-        ang_inc = self.msa * 2.0 / (self.sds - 1.0) # dif between each ang
-        angles = [self.rot + (pi if self.reverse else 0.0) + self.msa - i * ang_inc for i in xrange(self.sds)] # calc ang of each dir
+        ang_inc = self.msa / (self.sds - 1) # dif between each ang
+        angles = [self.rot + self.msa / 2.0 - i * ang_inc for i in xrange(self.sds)] # calc ang of each dir
         ang_i = -1
         self.sensors = [1] * self.sds
         for ang in angles:
@@ -147,7 +165,7 @@ class Car:
         self.steer(self.signof(dif))
 
     def trajectory(self, speed):
-        r = self.wb / tan(self.fw_ang)
+        r = self.wb / tan(self.fw_ang) if self.fw_ang != 0 else 10e7
         cx = self.pos[0] - r * sin(self.rot)
         cy = self.pos[1] - r * cos(self.rot)
         self.tc = (cx, cy)
@@ -163,3 +181,13 @@ class Car:
             return 0
         else:
             return x / abs(x)
+
+    def record_io(self):
+        wf = open("./Networks/io.txt", "a")
+        l = ""
+        for s in self.sensors:
+            l += str(s) + " "
+        l += "| " + str(squish(-self.inp.ver)) + " " + str(squish(self.fw_ang))
+        l += '\n'
+        wf.write(l)
+        wf.close()
